@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API CNE - Ejemplo: Estaciones de Servicio</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <div class="container">
+        <header class="my-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="text-primary">⛽ Ejemplo: Estaciones de Servicio</h1>
+                <a href="../index.html" class="btn btn-outline-secondary">← Volver al Inicio</a>
+            </div>
+            <p class="text-muted">Demostración del endpoint /api/v4/estaciones con filtros avanzados</p>
+        </header>
+
+        <!-- Estado de Autenticación -->
+        <div class="estado-autenticacion mb-4"></div>
+
+        <!-- Ejemplo de Código -->
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">Código de Ejemplo</h5>
+            </div>
+            <div class="card-body">
+                <pre><code>// Configuración de la llamada AJAX con jQuery
+var settings = {
+    "url": "https://api.cne.cl/api/v4/estaciones",
+    "method": "GET",
+    "timeout": 0,
+    "headers": {
+        "Authorization": "Bearer &lt;token&gt;"
+    }
+};
+
+// Realizar la llamada
+$.ajax(settings).done(function (response) {
+    console.log(response);
+    // Procesar la respuesta aquí
+});</code></pre>
+            </div>
+        </div>
+
+        <!-- Filtros Avanzados -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">🔍 Filtros de Búsqueda</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Región:</label>
+                        <select id="filtro-region" class="form-select" onchange="actualizarComunas()">
+                            <option value="">Todas las regiones</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Comuna:</label>
+                        <select id="filtro-comuna" class="form-select">
+                            <option value="">Todas las comunas</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Distribuidor:</label>
+                        <select id="filtro-distribuidor" class="form-select">
+                            <option value="">Todos los distribuidores</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Buscar por dirección o nombre:</label>
+                        <input type="text" id="buscar-texto" class="form-control" 
+                               placeholder="Ej: Av. Principal, COPEC, etc.">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Tipo de combustible:</label>
+                        <select id="filtro-combustible" class="form-select">
+                            <option value="">Todos los combustibles</option>
+                            <option value="93">Gasolina 93</option>
+                            <option value="95">Gasolina 95</option>
+                            <option value="97">Gasolina 97</option>
+                            <option value="DI">Diésel</option>
+                            <option value="A93">Autoservicio 93</option>
+                            <option value="A95">Autoservicio 95</option>
+                            <option value="A97">Autoservicio 97</option>
+                            <option value="ADI">Autoservicio Diésel</option>
+                        </select>
+                    </div>
+                    <div class="col-md-12">
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="filtro-mantenimiento" value="0">
+                            <label class="form-check-label" for="filtro-mantenimiento">
+                                Ocultar estaciones en mantenimiento
+                            </label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="filtro-tienda" value="true">
+                            <label class="form-check-label" for="filtro-tienda">
+                                Solo con tienda de conveniencia
+                            </label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="filtro-bano" value="true">
+                            <label class="form-check-label" for="filtro-bano">
+                                Solo con baño público
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-8">
+                        <button class="btn btn-primary" onclick="aplicarFiltros()">
+                            🔍 Aplicar Filtros
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="limpiarFiltros()">
+                            🗑️ Limpiar Filtros
+                        </button>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <button class="btn btn-success" onclick="cargarEstaciones()">
+                            ⛽ Cargar Estaciones
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Estadísticas -->
+        <div id="estadisticas" class="card mb-4 d-none">
+            <div class="card-header bg-warning text-dark">
+                <h6 class="mb-0">📊 Estadísticas</h6>
+            </div>
+            <div class="card-body">
+                <div class="row" id="stats-content">
+                    <!-- Las estadísticas se generarán aquí -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Resultados -->
+        <div id="resultados-estaciones" class="card">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Resultados</h5>
+                <span id="contador-estaciones" class="badge bg-light text-dark">0 estaciones</span>
+            </div>
+            <div class="card-body">
+                <div id="contenido-estaciones" class="text-center text-muted">
+                    <p>Haz clic en "Cargar Estaciones" para ver los datos</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para detalles de estación -->
+    <div class="modal fade" id="modalDetalle" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Detalles de la Estación</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="modalDetalleContent">
+                    <!-- Contenido del modal se carga aquí -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../app.js"></script>
+    <script>
+        let estacionesData = [];
+        let regionesData = [];
+        let comunasData = [];
+        let distribuidoresUnicos = new Set();
+
+        $(function() {
+            actualizarEstadoAutenticacion();
+            cargarRegionesParaFiltro();
+        });
+
+        function cargarRegionesParaFiltro() {
+            makeCNE_API_Call("https://api.cne.cl/api/region")
+                .done(function(regiones) {
+                    regionesData = regiones;
+                    let options = '<option value="">Todas las regiones</option>';
+                    $.each(regiones, function(i, region) {
+                        options += `<option value="${region.id}">${region.nombre}</option>`;
+                    });
+                    $('#filtro-region').html(options);
+                });
+        }
+
+        function actualizarComunas() {
+            const regionId = $('#filtro-region').val();
+            const $comunaSelect = $('#filtro-comuna');
+            
+            $comunaSelect.html('<option value="">Todas las comunas</option>');
+            
+            if (!regionId) return;
+
+            makeCNE_API_Call(`https://api.cne.cl/api/comuna/${regionId}`)
+                .done(function(comunas) {
+                    comunasData = comunas;
+                    $.each(comunas, function(i, comuna) {
+                        $comunaSelect.append(`<option value="${comuna.nombre}">${comuna.nombre}</option>`);
+                    });
+                });
+        }
+
+        function cargarEstaciones() {
+            const $contenido = $('#contenido-estaciones');
+            const $contador = $('#contador-estaciones');
+            const $estadisticas = $('#estadisticas');
+            
+            if (!API_TOKEN) {
+                $contenido.html(`
+                    <div class="alert alert-warning">
+                        <h6>Autenticación requerida</h6>
+                        <p>Necesitas un token válido para acceder a este endpoint.</p>
+                        <a href="../login.html" class="btn btn-sm btn-primary">Iniciar Sesión</a>
+                    </div>
+                `);
+                return;
+            }
+
+            $contenido.html('<div class="text-center"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Cargando estaciones...</p></div>');
+
+            makeCNE_API_Call("https://api.cne.cl/api/v4/estaciones")
+                .done(function(response) {
+                    estacionesData = response;
+                    distribuidoresUnicos = new Set();
+                    
+                    // Extraer distribuidores únicos
+                    response.forEach(estacion => {
+                        if (estacion.distribuidor && estacion.distribuidor.marca) {
+                            distribuidoresUnicos.add(estacion.distribuidor.marca);
+                        }
+                    });
+                    
+                    // Actualizar filtro de distribuidores
+                    const $distribuidorSelect = $('#filtro-distribuidor');
+                    $distribuidorSelect.html('<option value="">Todos los distribuidores</option>');
+                    distribuidoresUnicos.forEach(distribuidor => {
+                        $distribuidorSelect.append(`<option value="${distribuidor}">${distribuidor}</option>`);
+                    });
+                    
+                    aplicarFiltros();
+                    $estadisticas.removeClass('d-none');
+                })
+                .fail(function(jqXHR) {
+                    let mensaje = '';
+                    if (jqXHR.status === 401) {
+                        mensaje = 'Token inválido o expirado. <a href="../login.html" class="alert-link">Iniciar sesión nuevamente</a>.';
+                    } else {
+                        mensaje = `Error ${jqXHR.status}: ${jqXHR.statusText}`;
+                    }
+                    
+                    $contenido.html(`
+                        <div class="alert alert-danger">
+                            <h6>Error al cargar estaciones</h6>
+                            <p>${mensaje}</p>
+                        </div>
+                    `);
+                    $contador.text('0 estaciones');
+                    $estadisticas.addClass('d-none');
+                });
+        }
+
+        function aplicarFiltros() {
+            if (estacionesData.length === 0) return;
+
+            const regionFiltro = $('#filtro-region').val();
+            const comunaFiltro = $('#filtro-comuna').val();
+            const distribuidorFiltro = $('#filtro-distribuidor').val();
+            const textoFiltro = $('#buscar-texto').val().toLowerCase();
+            const combustibleFiltro = $('#filtro-combustible').val();
+            const mantenimientoFiltro = $('#filtro-mantenimiento').is(':checked');
+            const tiendaFiltro = $('#filtro-tienda').is(':checked');
+            const banoFiltro = $('#filtro-bano').is(':checked');
+
+            const estacionesFiltradas = estacionesData.filter(estacion => {
+                // Filtro por región
+                if (regionFiltro && estacion.ubicacion?.codigo_region !== regionFiltro) {
+                    return false;
+                }
+                
+                // Filtro por comuna
+                if (comunaFiltro && estacion.ubicacion?.nombre_comuna !== comunaFiltro) {
+                    return false;
+                }
+                
+                // Filtro por distribuidor
+                if (distribuidorFiltro && estacion.distribuidor?.marca !== distribuidorFiltro) {
+                    return false;
+                }
+                
+                // Filtro por texto
+                if (textoFiltro) {
+                    const razonSocial = (estacion.razon_social || '').toLowerCase();
+                    const direccion = (estacion.ubicacion?.direccion || '').toLowerCase();
+                    if (!razonSocial.includes(textoFiltro) && !direccion.includes(textoFiltro)) {
+                        return false;
+                    }
+                }
+                
+                // Filtro por combustible
+                if (combustibleFiltro && !estacion.precios?.[combustibleFiltro]) {
+                    return false;
+                }
+                
+                // Filtro por mantenimiento
+                if (mantenimientoFiltro && estacion.en_mantenimiento === 1) {
+                    return false;
+                }
+                
+                // Filtro por servicios
+                if (tiendaFiltro && !estacion.servicios?.["Tienda de conveniencia"]) {
+                    return false;
+                }
+                
+                if (banoFiltro && !estacion.servicios?.["Baño público"]) {
+                    return false;
+                }
+                
+                return true;
+            });
+
+            mostrarEstaciones(estacionesFiltradas);
+            generarEstadisticas(estacionesFiltradas);
+        }
+
+        function mostrarEstaciones(estaciones) {
+            const $contenido = $('#contenido-estaciones');
+            const $contador = $('#contador-estaciones');
+            
+            let html = '';
+            let contador = 0;
+            
+            if (estaciones.length > 0) {
+                html = '<div class="row">';
+                
+                $.each(estaciones, function(i, estacion) {
+                    contador++;
+                    
+                    const razonSocial = (estacion.razon_social || '').trim();
+                    const direccion = estacion.ubicacion?.direccion || 'Dirección no disponible';
+                    const comuna = estacion.ubicacion?.nombre_comuna || 'Comuna no disponible';
+                    const region = estacion.ubicacion?.nombre_region || 'Región no disponible';
+                    const distribuidor = estacion.distribuidor?.marca || 'Sin marca';
+                    const logo = estacion.distribuidor?.logo || '';
+                    
+                    // Precios disponibles
+                    const precios = estacion.precios || {};
+                    const preciosHtml = Object.keys(precios).slice(0, 3).map(tipo => {
+                        const precio = precios[tipo];
+                        return `<span class="badge bg-success me-1">${tipo}: $${precio.precio}</span>`;
+                    }).join('');
+                    
+                    // Servicios disponibles
+                    const servicios = estacion.servicios || {};
+                    const serviciosDestacados = Object.keys(servicios).filter(key => servicios[key]).slice(0, 3);
+                    
+                    html += `
+                        <div class="col-md-6 col-lg-4 mb-4">
+                            <div class="card h-100 estacion-card">
+                                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                    <strong class="text-truncate">${distribuidor}</strong>
+                                    ${logo ? `<img src="${logo}" alt="${distribuidor}" height="20">` : ''}
+                                </div>
+                                <div class="card-body">
+                                    <h6 class="card-title text-truncate" title="${razonSocial}">${razonSocial}</h6>
+                                    <p class="card-text small">
+                                        <i class="bi bi-geo-alt"></i> ${direccion}<br>
+                                        <span class="text-muted">${comuna}, ${region}</span>
+                                    </p>
+                                    <div class="mb-2">
+                                        ${preciosHtml}
+                                        ${Object.keys(precios).length > 3 ? 
+                                            `<span class="badge bg-secondary">+${Object.keys(precios).length - 3}</span>` : ''}
+                                    </div>
+                                    ${serviciosDestacados.length > 0 ? `
+                                        <div class="mb-2">
+                                            <small class="text-muted">Servicios: ${serviciosDestacados.join(', ')}</small>
+                                        </div>
+                                    ` : ''}
+                                    ${estacion.en_mantenimiento === 1 ? 
+                                        '<span class="badge bg-danger">En mantenimiento</span>' : 
+                                        '<span class="badge bg-success">Operativa</span>'}
+                                </div>
+                                <div class="card-footer bg-transparent">
+                                    <div class="d-flex justify-content-between">
+                                        <small class="text-muted">Código: ${estacion.codigo || 'N/A'}</small>
+                                        <button class="btn btn-sm btn-outline-primary" 
+                                                onclick="verDetalleEstacion(${i})">
+                                            Ver más
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+            } else {
+                html = `
+                    <div class="alert alert-info">
+                        <h6>No se encontraron estaciones</h6>
+                        <p>Intenta ajustar los filtros de búsqueda.</p>
+                    </div>
+                `;
+            }
+            
+            $contenido.html(html);
+            $contador.text(contador + ' estaciones');
+        }
+
+        function generarEstadisticas(estaciones) {
+            const stats = {
+                total: estaciones.length,
+                porRegion: {},
+                porDistribuidor: {},
+                conTienda: 0,
+                conBano: 0,
+                enMantenimiento: 0
+            };
+
+            estaciones.forEach(estacion => {
+                // Estadísticas por región
+                const region = estacion.ubicacion?.nombre_region || 'Sin región';
+                stats.porRegion[region] = (stats.porRegion[region] || 0) + 1;
+                
+                // Estadísticas por distribuidor
+                const distribuidor = estacion.distribuidor?.marca || 'Sin marca';
+                stats.porDistribuidor[distribuidor] = (stats.porDistribuidor[distribuidor] || 0) + 1;
+                
+                // Servicios
+                if (estacion.servicios?.["Tienda de conveniencia"]) stats.conTienda++;
+                if (estacion.servicios?.["Baño público"]) stats.conBano++;
+                if (estacion.en_mantenimiento === 1) stats.enMantenimiento++;
+            });
+
+            let statsHtml = `
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white text-center">
+                        <div class="card-body py-3">
+                            <h4>${stats.total}</h4>
+                            <p class="mb-0">Total</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white text-center">
+                        <div class="card-body py-3">
+                            <h4>${stats.conTienda}</h4>
+                            <p class="mb-0">Con tienda</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white text-center">
+                        <div class="card-body py-3">
+                            <h4>${stats.conBano}</h4>
+                            <p class="mb-0">Con baño</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-white text-center">
+                        <div class="card-body py-3">
+                            <h4>${stats.enMantenimiento}</h4>
+                            <p class="mb-0">En mantenimiento</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            $('#stats-content').html(statsHtml);
+        }
+
+        function verDetalleEstacion(index) {
+            const estacion = estacionesData[index];
+            const modalContent = $('#modalDetalleContent');
+            
+            let contenido = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Información General</h6>
+                        <p><strong>Razón Social:</strong> ${estacion.razon_social || 'N/A'}</p>
+                        <p><strong>Código:</strong> ${estacion.codigo || 'N/A'}</p>
+                        <p><strong>Distribuidor:</strong> ${estacion.distribuidor?.marca || 'N/A'}</p>
+                        <p><strong>Estado:</strong> ${estacion.en_mantenimiento === 1 ? 
+                            '<span class="badge bg-danger">En mantenimiento</span>' : 
+                            '<span class="badge bg-success">Operativa</span>'}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Ubicación</h6>
+                        <p><strong>Dirección:</strong> ${estacion.ubicacion?.direccion || 'N/A'}</p>
+                        <p><strong>Comuna:</strong> ${estacion.ubicacion?.nombre_comuna || 'N/A'}</p>
+                        <p><strong>Región:</strong> ${estacion.ubicacion?.nombre_region || 'N/A'}</p>
+                        <p><strong>Coordenadas:</strong> ${estacion.ubicacion?.latitud || 'N/A'}, ${estacion.ubicacion?.longitud || 'N/A'}</p>
+                    </div>
+                </div>
+                
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <h6>Precios</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Combustible</th>
+                                        <th>Precio</th>
+                                        <th>Tipo</th>
+                                        <th>Actualizado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+            `;
+
+            // Precios
+            Object.entries(estacion.precios || {}).forEach(([tipo, info]) => {
+                contenido += `
+                    <tr>
+                        <td><strong>${tipo}</strong></td>
+                        <td>$${info.precio} ${info.unidad_cobro}</td>
+                        <td><span class="badge ${info.tipo_atencion === 'Autoservicio' ? 'bg-warning' : 'bg-info'}">${info.tipo_atencion}</span></td>
+                        <td><small>${info.fecha_actualizacion} ${info.hora_actualizacion}</small></td>
+                    </tr>
+                `;
+            });
+
+            contenido += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Servicios</h6>
+                        <div class="row">
+            `;
+
+            // Servicios
+            Object.entries(estacion.servicios || {}).forEach(([servicio, disponible]) => {
+                contenido += `
+                    <div class="col-md-6 mb-2">
+                        <span class="badge ${disponible ? 'bg-success' : 'bg-secondary'}">
+                            ${servicio}: ${disponible ? 'Sí' : 'No'}
+                        </span>
+                    </div>
+                `;
+            });
+
+            contenido += `
+                        </div>
+                        
+                        <h6 class="mt-3">Métodos de Pago</h6>
+                        <div class="row">
+            `;
+
+            // Métodos de pago
+            Object.entries(estacion.metodos_de_pago || {}).forEach(([metodo, disponible]) => {
+                contenido += `
+                    <div class="col-md-6 mb-2">
+                        <span class="badge ${disponible ? 'bg-primary' : 'bg-secondary'}">
+                            ${metodo}: ${disponible ? 'Sí' : 'No'}
+                        </span>
+                    </div>
+                `;
+            });
+
+            contenido += `
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            modalContent.html(contenido);
+            new bootstrap.Modal(document.getElementById('modalDetalle')).show();
+        }
+
+        function limpiarFiltros() {
+            $('#filtro-region').val('');
+            $('#filtro-comuna').val('');
+            $('#filtro-distribuidor').val('');
+            $('#buscar-texto').val('');
+            $('#filtro-combustible').val('');
+            $('#filtro-mantenimiento').prop('checked', false);
+            $('#filtro-tienda').prop('checked', false);
+            $('#filtro-bano').prop('checked', false);
+            
+            if (estacionesData.length > 0) {
+                aplicarFiltros();
+            }
+        }
+    </script>
+</body>
+</html>
